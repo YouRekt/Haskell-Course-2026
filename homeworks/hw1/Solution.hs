@@ -62,3 +62,16 @@ permutations k lst = [x : xs | (x, remaining) <- picks lst, xs <- permutations (
     picks :: [a] -> [(a, [a])]
     picks [] = []
     picks (y : ys) = (y, ys) : [(z, y : zs) | (z, zs) <- picks ys]
+
+-- Ex.6
+
+merge :: (Ord a) => [a] -> [a] -> [a]
+merge [] ys = ys
+merge xs [] = xs
+merge (x : xs) (y : ys)
+  | x < y = x : merge xs (y : ys)
+  | x > y = y : merge (x : xs) ys
+  | otherwise = x : merge xs ys
+
+hamming :: [Integer]
+hamming = 1 : merge (map (* 2) hamming) (merge (map (* 3) hamming) (map (* 5) hamming))
