@@ -51,3 +51,14 @@ matMul a b =
     (rowB : _) = b
     p = length rowA
     n = length rowB
+
+-- Ex.5
+
+permutations :: Int -> [a] -> [[a]]
+permutations 0 _ = [[]]
+permutations _ [] = []
+permutations k lst = [x : xs | (x, remaining) <- picks lst, xs <- permutations (k - 1) remaining]
+  where
+    picks :: [a] -> [(a, [a])]
+    picks [] = []
+    picks (y : ys) = (y, ys) : [(z, y : zs) | (z, zs) <- picks ys]
