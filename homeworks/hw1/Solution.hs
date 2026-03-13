@@ -86,3 +86,17 @@ power b e = go 1 e
   where
     go acc 0 = acc
     go !acc e = go (acc * b) (e - 1)
+
+-- Ex.8
+
+listMax1 :: [Int] -> Int
+listMax1 (x : xs) = go x xs
+  where
+    go acc [] = acc
+    go acc (y : ys) = let m = max acc y in seq m (go m ys)
+
+listMax2 :: [Int] -> Int
+listMax2 (x : xs) = go x xs
+  where
+    go acc [] = acc
+    go !acc (y : ys) = go (max acc y) ys
