@@ -1,5 +1,8 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Solution (goldbachPairs) where
 
+import Distribution.CabalSpecVersion (CabalSpecVersion (CabalSpecV1_10))
 import GHC.Base qualified as Ex
 
 -- Ex.1
@@ -75,3 +78,11 @@ merge (x : xs) (y : ys)
 
 hamming :: [Integer]
 hamming = 1 : merge (map (* 2) hamming) (merge (map (* 3) hamming) (map (* 5) hamming))
+
+-- Ex.7
+
+power :: Int -> Int -> Int
+power b e = go 1 e
+  where
+    go acc 0 = acc
+    go !acc e = go (acc * b) (e - 1)
