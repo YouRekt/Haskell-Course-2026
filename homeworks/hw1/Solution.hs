@@ -100,3 +100,18 @@ listMax2 (x : xs) = go x xs
   where
     go acc [] = acc
     go !acc (y : ys) = go (max acc y) ys
+
+-- Ex.9
+
+primes :: [Int]
+primes = sieve [2 ..]
+
+isPrime2 :: Int -> Bool
+isPrime2 n
+  | n < 2 = False
+  | otherwise = check n primes
+  where
+    check target (p : ps)
+      | p == target = True
+      | p > target = False
+      | otherwise = check target ps
