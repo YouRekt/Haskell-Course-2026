@@ -2,9 +2,6 @@
 
 module Solution (goldbachPairs) where
 
-import Distribution.CabalSpecVersion (CabalSpecVersion (CabalSpecV1_10))
-import GHC.Base qualified as Ex
-
 -- Ex.1
 
 goldbachPairs :: Int -> [(Int, Int)]
@@ -115,3 +112,23 @@ isPrime2 n
       | p == target = True
       | p > target = False
       | otherwise = check target ps
+
+-- Ex.10
+
+firstMean :: [Double] -> Double
+firstMean ds = let (s, c) = go 0 0 ds in s / c
+  where
+    go sum cnt [] = (sum, cnt)
+    go sum cnt (x : xs) = go (sum + x) (cnt + 1) xs
+
+mean :: [Double] -> Double
+mean ds = let (s, c) = go 0 0 ds in s / c
+  where
+    go sum cnt [] = (sum, cnt)
+    go !sum !cnt (x : xs) = go (sum + x) (cnt + 1) xs
+
+meanVariance :: [Double] -> (Double, Double)
+meanVariance ds = let (s, s2, c) = go 0 0 0 ds in (s / c, (s2 / c) - s / c)
+  where
+    go sum sum2 cnt [] = (sum, sum2, cnt)
+    go !sum !sum2 !cnt (x : xs) = go (sum + x) (sum2 + (x * x)) (cnt + 1) xs
