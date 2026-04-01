@@ -40,3 +40,15 @@ instance Semigroup (Sequence a) where
 instance Monoid (Sequence a) where
     mempty :: Sequence a
     mempty = Empty
+
+-- Ex.4
+
+tailElem :: (Eq a) => a -> Sequence a -> Bool
+tailElem target seq = go [seq]
+  where
+    go [] = False
+    go (Empty : xs) = go xs
+    go (Single e : xs)
+        | e == target = True
+        | otherwise = go xs
+    go (Append l r : xs) = go (l : r : xs)
