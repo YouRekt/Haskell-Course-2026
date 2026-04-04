@@ -68,7 +68,7 @@ tailToList seq = go [] [seq]
 data Token = TNum Int | TAdd | TSub | TMul | TDiv deriving (Show, Eq)
 
 tailRPN :: [Token] -> Maybe Int
-tailRPN tokens = go [] tokens
+tailRPN = go []
   where
     go [result] [] = Just result
     go _ [] = Nothing
@@ -79,3 +79,21 @@ tailRPN tokens = go [] tokens
     go (0 : l : stack) (TDiv : ts) = Nothing
     go (r : l : stack) (TDiv : ts) = go (l `div` r : stack) ts
     go _ _ = Nothing
+
+-- Ex.7
+
+myReverseFoldr :: [a] -> [a]
+myReverseFoldr = foldr (\x acc -> acc <> [x]) []
+
+myReverseFoldl :: [a] -> [a]
+myReverseFoldl = foldl (flip (:)) []
+
+myTakeWhileFoldr :: (a -> Bool) -> [a] -> [a]
+myTakeWhileFoldr p = foldr go []
+  where
+    go x acc
+      | p x = [x] <> acc
+      | otherwise = acc
+
+myDecimalFoldl :: [Int] -> Int
+myDecimalFoldl = foldl (\acc x -> 10 * acc + x) 0
