@@ -97,3 +97,18 @@ myTakeWhileFoldr p = foldr go []
 
 myDecimalFoldl :: [Int] -> Int
 myDecimalFoldl = foldl (\acc x -> 10 * acc + x) 0
+
+-- Ex. 8
+
+encode :: (Eq a) => [a] -> [(a, Int)]
+encode = foldr go []
+  where
+    go x [] = [(x, 1)]
+    go x ((y, cnt) : ys)
+      | x == y = (x, cnt + 1) : ys
+      | otherwise = (x, 1) : (y, cnt) : ys
+
+decode :: [(a, Int)] -> [a]
+decode = foldr go []
+  where
+    go (x, cnt) acc = replicate cnt x <> acc
