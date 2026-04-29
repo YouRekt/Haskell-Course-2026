@@ -28,3 +28,13 @@ safePath maze pos (d:ds) = do
     safePathTail <- safePath maze newPos ds
 
     return (newPos:safePathTail)
+
+-- Ex.2
+
+type Key = Map Char Char
+
+decrypt :: Key -> String -> Maybe String
+decrypt key = traverse (`Map.lookup` key)
+
+decryptWords :: Key -> [String] -> Maybe [String]
+decryptWords key = traverse (decrypt key)
