@@ -140,3 +140,33 @@ simplify (Neg n) = do
             tell ["Double negation: -(-e) = e"]
             return e
         _ -> return (Neg m)
+
+-- Ex.6
+
+newtype ZipList a = ZipList { getZipList :: [a] } deriving (Show)
+
+instance Functor ZipList where
+  fmap f (ZipList xs) = ZipList (map f xs)
+
+instance Applicative ZipList where
+  pure x = ZipList (repeat x)
+  ZipList fs <*> ZipList xs = ZipList (zipWith ($) fs xs)
+
+-- (>>=) :: ZipList a -> (a -> ZipList b) -> ZipList b
+-- Bind might return ZipLists of different lengths for different elements.
+-- Positional pairing requires a fixed "shape", but bind would need to pick
+-- a length that depends on runtime values. This breaks associativity:
+-- (m >>= f) >>= g \= m >>= (\x -> f x >>= g)
+-- Example:
+-- m = ZipList [1, 2]
+-- Let f and g return different size lists like:
+-- f 1 = ZipList [10]
+-- f 2 = ZipList [0, 20]
+-- g 0 = ZipList []
+-- g 10 = ZipList [100]
+-- g 20 = ZipList [200, 201]
+-- m >>= f = ZipList [10, 20] >>= g = ZipList [100, 201]
+-- lambda = \x -> f x >>= g for:
+-- x = 1 -> f 1 >>= g = ZipList [10] >>= g = ZipList [100]
+-- x = 2 -> f 2 >>= g = ZipList [0, 20] >>= g = ZipList []
+--  m >>= lambda = ZipList [100] \= ZipList [100, 201] -> a contradiction!
