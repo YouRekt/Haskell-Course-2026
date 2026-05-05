@@ -1,8 +1,8 @@
 module Solution () where
 import Data.Map (Map)
 import qualified Data.Map as Map
-import GHC.Internal.TH.Lib (safe)
-import Data.Text.Array (new)
+import Control.Monad (guard)
+import Data.List
 
 -- Ex.1
 
@@ -38,3 +38,17 @@ decrypt key = traverse (`Map.lookup` key)
 
 decryptWords :: Key -> [String] -> Maybe [String]
 decryptWords key = traverse (decrypt key)
+
+-- Ex.3
+
+type Guest = String
+type Conflict = (Guest, Guest)
+
+seatings :: [Guest] -> [Conflict] -> [[Guest]]
+seatings guests conflicts = do
+    arrangement <- permutations guests
+    let pairs = zip arrangement (tail arrangement ++ [head arrangement])
+    guard $ all noConflict pairs
+    return arrangement
+    where
+        noConflict (a, b) = (a,b) `notElem` conflicts && (b,a) `notElem` conflicts
