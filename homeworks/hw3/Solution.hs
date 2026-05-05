@@ -3,6 +3,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad (guard)
 import Data.List
+import Control.Monad.Trans.Writer
+import Text.XHtml (base)
 
 -- Ex.1
 
@@ -90,3 +92,51 @@ validateAge age
 validateAges :: [Int] -> Result [Int]
 validateAges ages = do
     mapM validateAge ages
+
+-- Ex.5
+
+data Expr = Lit Int | Add Expr Expr | Mul Expr Expr | Neg Expr deriving (Show)
+
+simplify :: Expr -> Writer [String] Expr
+simplify (Lit n) = return (Lit n)
+simplify (Add l r) = do
+    l' <- simplify l
+    r' <- simplify r
+    case (l',r') of
+        (Lit 0, e) -> do 
+            tell ["Add identity: 0 + e -> e"]
+            return e
+        (e, Lit 0) -> do
+            tell ["Add identity: e + 0 -> e"]
+            return e
+        (Lit n, Lit m) -> do
+            tell ["Constant folding: " ++ show n ++ " + " ++ show m]
+            return (Lit (n+m))
+        _ -> return (Add l' r')
+simplify (Mul l r) = do
+    l' <- simplify l
+    r' <- simplify r
+    case (l',r') of
+        (Lit 1, e) -> do
+            tell ["Mul identity: 1 * e -> e"]
+            return e
+        (e, Lit 1) -> do
+            tell ["Mul identity: e * 1 -> e"]
+            return e
+        (Lit 0, Lit n) -> do
+            tell ["Zero absorption: 0 * " ++ show n ++ " = 0" ]
+            return (Lit 0)
+        (Lit n, Lit 0) -> do
+            tell ["Zero absorption: " ++ show n ++ " * 0  = 0" ]
+            return (Lit 0)
+        (Lit n, Lit m) -> do
+            tell ["Constant folding: " ++ show n ++ " * " ++ show m]
+            return (Lit (n*m))
+        _ -> return (Mul l' r')
+simplify (Neg n) = do
+    m <- simplify n
+    case m of
+        Neg e -> do
+            tell ["Double negation: -(-e) = e"]
+            return e
+        _ -> return (Neg m)
