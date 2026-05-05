@@ -52,3 +52,41 @@ seatings guests conflicts = do
     return arrangement
     where
         noConflict (a, b) = (a,b) `notElem` conflicts && (b,a) `notElem` conflicts
+
+-- Ex.4
+
+data Result a = Failure String | Success a [String] deriving (Show)
+
+instance Functor Result where
+    fmap _ (Failure msg) = Failure msg
+    fmap f (Success a warnings) = Success (f a) warnings
+
+instance Applicative Result where
+    pure a = Success a []
+    Failure msg <*> _ = Failure msg
+    Success _ _ <*> Failure msg = Failure msg
+    Success f warnings' <*> Success a warnings = Success (f a) (warnings' ++ warnings)
+
+instance Monad Result where
+    Failure msg >>= _ = Failure msg
+    Success a warnings >>= f = case f a of
+        Failure msg -> Failure msg
+        Success b warnings' -> Success b (warnings ++ warnings')
+
+warn :: String -> Result ()
+warn msg = Success () [msg]
+
+failure :: String -> Result a
+failure = Failure
+
+validateAge :: Int -> Result Int
+validateAge age
+    | age < 0 = failure "Age is negative"
+    | age > 150 = do
+        warn "Age is over 150"
+        return age
+    | otherwise = return age
+
+validateAges :: [Int] -> Result [Int]
+validateAges ages = do
+    mapM validateAge ages
