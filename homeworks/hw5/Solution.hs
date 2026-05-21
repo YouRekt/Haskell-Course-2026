@@ -70,3 +70,29 @@ eval (Seq l r) = eval l >> eval r
 
 runEval :: Expr -> Int
 runEval e = evalState (eval e) Map.empty
+
+-- Ex.3
+
+editDistM :: String -> String -> Int -> Int -> State (Map (Int, Int) Int) Int
+editDistM xs ys i j = do
+    cache <- get
+    case Map.lookup (i, j) cache of
+        Just dist -> return dist
+        Nothing -> do
+            dist <- compute
+            modify (Map.insert (i, j) dist)
+            return dist
+    where
+        compute
+            | i == 0 = return j
+            | j == 0 = return i
+            | xs !! (i - 1) == ys !! (j - 1) =
+                editDistM xs ys (i - 1) (j - 1)
+            | otherwise = do
+                del <- editDistM xs ys (i - 1) j
+                ins <- editDistM xs ys i (j - 1)
+                sub <- editDistM xs ys (i - 1) (j - 1)
+                return (1 + minimum [del, ins, sub])
+
+editDistance :: String -> String -> Int
+editDistance xs ys = evalState (editDistM xs ys (length xs) (length ys)) Map.empty
