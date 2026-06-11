@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Spreadsheet.Parser
       Spreadsheet.Types
   other-modules:
       Paths_project
