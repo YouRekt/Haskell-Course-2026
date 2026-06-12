@@ -19,10 +19,15 @@ module Spreadsheet.Parser
   , token
   , symbol
   , number
+
+    -- * Addresses and literal values
+  , addr
+  , value
   ) where
 
 import Control.Monad.State
-import Data.Char (isDigit, isSpace)
+import Data.Char (isAsciiUpper, isDigit, isSpace)
+import Spreadsheet.Types (Addr, Value (..))
 
 --
 -- ==========================================
@@ -150,3 +155,39 @@ number = token $ do
       dot <- char '.'
       ds  <- many1 digit
       pure (dot : ds)
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 5. Addresses and literal values
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- A cell address: one or more upper-case column letters followed by a row
+-- number, e.g. @A1@, @B12@ or @AA3@.
+addr :: Parser Addr
+addr = token $ do
+  cs <- many1 (sat isAsciiUpper)
+  ds <- many1 digit
+  pure (cs, read ds)
+
+-- A literal value: a number, a quoted string, or the booleans TRUE/FALSE.
+value :: Parser Value
+value =
+      numLit
+  <|> boolLit
+  <|> strLit
+  where
+    numLit  = NumV <$> number
+
+    boolLit =
+          (symbol "TRUE"  >> pure (BoolV True))
+      <|> (symbol "FALSE" >> pure (BoolV False))
+
+    strLit  = StrV <$> stringLit
+
+-- A double-quoted string literal (no escape sequences — kept simple).
+stringLit :: Parser String
+stringLit = token $ do
+  _  <- char '"'
+  cs <- many (sat (/= '"'))
+  _  <- char '"'
+  pure cs
