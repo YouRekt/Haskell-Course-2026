@@ -23,11 +23,22 @@ module Spreadsheet.Parser
     -- * Addresses and literal values
   , addr
   , value
+
+    -- * Expressions
+  , chainl1
+  , expr
+  , parseExpr
   ) where
 
 import Control.Monad.State
 import Data.Char (isAsciiUpper, isDigit, isSpace)
-import Spreadsheet.Types (Addr, Value (..))
+import Spreadsheet.Types
+  ( Addr
+  , Expr (..)
+  , Op (..)
+  , RangeOp (..)
+  , Value (..)
+  )
 
 --
 -- ==========================================
@@ -191,3 +202,111 @@ stringLit = token $ do
   cs <- many (sat (/= '"'))
   _  <- char '"'
   pure cs
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 6. The expression grammar
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+--   expr   ::= cmp
+--   cmp    ::= sum (('=' | '<' | '>') sum)?     -- comparisons yield BoolV
+--   sum    ::= term   (('+' | '-') term)*       -- left-associative
+--   term   ::= factor (('*' | '/') factor)*     -- left-associative
+--   factor ::= '-' factor
+--            | ('SUM' | 'AVG') '(' addr ':' addr ')'
+--            | addr
+--            | value
+--            | '(' expr ')'
+--
+
+-- Parse one or more @p@ separated by a left-associative binary @op@. Lets
+-- us write @100 - 10 - 1@ and get @(100 - 10) - 1 = 89@, not @91@.
+chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
+chainl1 p op = p >>= rest
+  where
+    rest x =
+      (do
+         f <- op
+         y <- p
+         rest (f x y))
+      <|> pure x
+
+expr :: Parser Expr
+expr = cmp
+
+cmp :: Parser Expr
+cmp = do
+  l <- sumE
+  (do
+     op <- cmpop
+     r  <- sumE
+     pure (BinOp op l r))
+   <|> pure l
+
+sumE, term, factor :: Parser Expr
+sumE = term   `chainl1` addop
+term = factor `chainl1` mulop
+factor =
+      neg
+  <|> rangeE
+  <|> ref
+  <|> lit
+  <|> paren
+  where
+    neg = do
+      _ <- symbol "-"
+      e <- factor
+      pure (Neg e)
+
+    ref = Ref <$> addr
+    lit = LitE <$> value
+
+    paren = do
+      _ <- symbol "("
+      e <- expr
+      _ <- symbol ")"
+      pure e
+
+-- A range operation such as @SUM(A1:A5)@ or @AVG(B2:B9)@.
+rangeE :: Parser Expr
+rangeE = do
+  ro <- rangeop
+  _  <- symbol "("
+  a  <- addr
+  _  <- symbol ":"
+  b  <- addr
+  _  <- symbol ")"
+  pure (Range ro a b)
+
+addop :: Parser (Expr -> Expr -> Expr)
+addop =
+      (symbol "+" >> pure (BinOp Add))
+  <|> (symbol "-" >> pure (BinOp Sub))
+
+mulop :: Parser (Expr -> Expr -> Expr)
+mulop =
+      (symbol "*" >> pure (BinOp Mul))
+  <|> (symbol "/" >> pure (BinOp Div))
+
+cmpop :: Parser Op
+cmpop =
+      (symbol "=" >> pure Eq)
+  <|> (symbol "<" >> pure Lt)
+  <|> (symbol ">" >> pure Gt)
+
+rangeop :: Parser RangeOp
+rangeop =
+      (symbol "SUM" >> pure SumR)
+  <|> (symbol "AVG" >> pure AvgR)
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 7. Top-level expression parser
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- Parse a complete expression, requiring that all the input is consumed.
+parseExpr :: String -> Maybe Expr
+parseExpr s =
+  case runParser (spaces >> expr) s of
+    ((e, "") : _) -> Just e
+    _             -> Nothing
