@@ -28,15 +28,21 @@ module Spreadsheet.Parser
   , chainl1
   , expr
   , parseExpr
+
+    -- * Sheets
+  , parseSheet
   ) where
 
 import Control.Monad.State
 import Data.Char (isAsciiUpper, isDigit, isSpace)
 import Spreadsheet.Types
   ( Addr
+  , Cell (Cell)
+  , Content (..)
   , Expr (..)
   , Op (..)
   , RangeOp (..)
+  , Sheet (..)
   , Value (..)
   )
 
@@ -136,11 +142,21 @@ string (c : cs) = do
   _ <- string cs
   pure (c : cs)
 
--- Skip run-of-the-mill whitespace.
+-- Skip whitespace *and* @#@ line comments — anywhere a token may be
+-- followed by spaces it may now also be followed by a comment.
 spaces :: Parser ()
 spaces = do
-  _ <- many spaceP
+  _ <- many (spaceP <|> comment)
   pure ()
+
+-- A @#@ comment runs to the end of the line. We treat the whole comment as
+-- a single "whitespace" character so 'many' above can keep going; the
+-- terminating newline (if any) is then eaten by 'spaceP'.
+comment :: Parser Char
+comment = do
+  _ <- char '#'
+  _ <- many (sat (/= '\n'))
+  pure '#'
 
 -- Run a parser and then swallow any trailing whitespace, so the next
 -- parser starts on real input. Combinators built from 'token' let us be
@@ -310,3 +326,55 @@ parseExpr s =
   case runParser (spaces >> expr) s of
     ((e, "") : _) -> Just e
     _             -> Nothing
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 8. The sheet grammar
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+--   sheet  ::= 'sheet' '{' assign* '}'
+--   assign ::= addr '=' expr ';'
+--
+
+-- A single @addr = expr ;@ assignment. A right-hand side that is just a
+-- literal becomes 'Lit' content; anything else is a 'Form'ula — that split
+-- is what later lets the evaluator tell formula cells apart from data.
+assignment :: Parser Cell
+assignment = do
+  a <- addr
+  _ <- symbol "="
+  e <- expr
+  _ <- symbol ";"
+  pure (Cell a (classify e))
+
+classify :: Expr -> Content
+classify (LitE v) = Lit v
+classify e        = Form e
+
+sheetP :: Parser Sheet
+sheetP = do
+  _  <- symbol "sheet"
+  _  <- symbol "{"
+  cs <- many assignment
+  _  <- symbol "}"
+  pure (Sheet cs)
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 9. Top-level sheet parser
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- Parse a whole sheet. On failure we report the line of the first input we
+-- could not consume — enough to point a beginner at the offending cell.
+parseSheet :: String -> Either String Sheet
+parseSheet s =
+  case runParser (spaces >> sheetP) s of
+    ((sh, "")   : _) -> Right sh
+    ((_,  rest) : _) -> Left (errorAt rest)
+    []               -> Left "syntax error: input is not a valid sheet"
+  where
+    errorAt rest =
+      let consumed = length s - length rest
+          line     = 1 + length (filter (== '\n') (take consumed s))
+      in "syntax error at line " ++ show line
+           ++ ": unexpected " ++ show (takeWhile (/= '\n') rest)
