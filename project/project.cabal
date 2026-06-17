@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Spreadsheet.Eval
       Spreadsheet.Parser
       Spreadsheet.Types
   other-modules:
