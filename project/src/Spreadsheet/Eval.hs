@@ -9,6 +9,11 @@ module Spreadsheet.Eval
 
     -- * Evaluating a single expression
   , evalExpr
+
+    -- * Dependency graph
+  , deps
+  , contentDeps
+  , dependencies
   ) where
 
 import Data.Map (Map)
@@ -133,3 +138,30 @@ numbers = foldr step (Right [])
     step (ErrV e) _          = Left (ErrV e)
     step _        (Right _)  = Left (ErrV "type")
     step _        acc        = acc
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 3. The dependency graph
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- The cells an expression refers to *directly*, with ranges expanded to
+-- every address they cover. This is the heart of the dependency graph:
+-- before a cell can be evaluated, all of these must be known.
+deps :: Expr -> [Addr]
+deps (Ref a)       = [a]
+deps (LitE _)      = []
+deps (Neg e)       = deps e
+deps (BinOp _ a b) = deps a ++ deps b
+deps (Range _ a b) = expandRange a b
+
+-- A literal cell depends on nothing; a formula cell depends on its refs.
+contentDeps :: Content -> [Addr]
+contentDeps (Lit _)  = []
+contentDeps (Form e) = deps e
+
+-- Map every defined cell to the list of cells it depends on. (A reference
+-- to an undefined cell stays in the list; the evaluator turns it into a
+-- '#REF' value, it just never gets its own node here.)
+dependencies :: Sheet -> Map Addr [Addr]
+dependencies (Sheet cells) =
+  Map.fromList [ (addr c, contentDeps (content c)) | c <- cells ]
