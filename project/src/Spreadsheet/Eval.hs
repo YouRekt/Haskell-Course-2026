@@ -14,10 +14,16 @@ module Spreadsheet.Eval
   , deps
   , contentDeps
   , dependencies
+
+    -- * Topological evaluation
+  , topoOrder
+  , evalSheet
   ) where
 
+import Data.List (partition)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 import Spreadsheet.Types
 
@@ -165,3 +171,52 @@ contentDeps (Form e) = deps e
 dependencies :: Sheet -> Map Addr [Addr]
 dependencies (Sheet cells) =
   Map.fromList [ (addr c, contentDeps (content c)) | c <- cells ]
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 4. Topological order and cycle detection
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- Order the cells so every cell comes after the cells it depends on, using
+-- Kahn's algorithm: repeatedly take the cells whose dependencies are all
+-- already placed. If at some point nothing is ready but cells remain, those
+-- cells are on (or downstream of) a cycle. We return both lists:
+-- @(evaluation order, cells stuck in a cycle)@. Dependencies on undefined
+-- cells are ignored here — they cannot create a cycle, and the evaluator
+-- reports them as '#REF'.
+topoOrder :: Map Addr [Addr] -> ([Addr], [Addr])
+topoOrder depMap = loop [] (Map.keys depMap)
+  where
+    defined    = Set.fromList (Map.keys depMap)
+    realDeps a = filter (`Set.member` defined) (Map.findWithDefault [] a depMap)
+
+    loop ordered remaining =
+      let placed             = Set.fromList ordered
+          isReady a          = all (`Set.member` placed) (realDeps a)
+          (ready, notReady)  = partition isReady remaining
+      in if null ready
+           then (ordered, remaining)           -- stuck: the rest are cyclic
+           else loop (ordered ++ ready) notReady
+
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 5. Evaluating a whole sheet
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- Evaluate every cell of a sheet to a value. Cells on a cycle become
+-- @ErrV "cycle"@; all other cells are evaluated in dependency order, so by
+-- the time a formula runs the values it refers to are already in the
+-- environment.
+evalSheet :: Sheet -> Map Addr Value
+evalSheet sheet@(Sheet cells) =
+  foldl step cyclesFlagged ordered
+  where
+    (ordered, cyclic) = topoOrder (dependencies sheet)
+    contentOf         = Map.fromList [ (addr c, content c) | c <- cells ]
+    cyclesFlagged     = Map.fromList [ (a, ErrV "cycle") | a <- cyclic ]
+
+    step env a =
+      case Map.lookup a contentOf of
+        Just (Lit v)  -> Map.insert a v env
+        Just (Form e) -> Map.insert a (evalExpr env e) env
+        Nothing       -> env
