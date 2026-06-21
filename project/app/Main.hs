@@ -1,4 +1,42 @@
 module Main (main) where
 
+import System.Environment (getArgs)
+
+import Spreadsheet (Addr, Value, prettyAddr, prettyValue, run)
+
+--
+-- A tiny command-line front end for SpreadsheetLang. Given the path to a
+-- .sheet file it parses, evaluates and prints every cell; with no argument
+-- it runs a small built-in example so the program does something useful on
+-- its own.
+--
+
 main :: IO ()
-main = putStrLn "SpreadsheetLang (work in progress)"
+main = do
+  args <- getArgs
+  case args of
+    [path] -> readFile path >>= report
+    []     -> do
+      putStrLn "No sheet file given - running the built-in example.\n"
+      report exampleSheet
+    _      -> putStrLn "usage: project-exe [SHEET-FILE]"
+
+-- Parse, evaluate and print a sheet, or show a parse error.
+report :: String -> IO ()
+report src =
+  case run src of
+    Left err    -> putStrLn ("Could not parse the sheet:\n  " ++ err)
+    Right cells -> mapM_ printCell cells
+  where
+    printCell :: (Addr, Value) -> IO ()
+    printCell (a, v) = putStrLn (prettyAddr a ++ " = " ++ prettyValue v)
+
+exampleSheet :: String
+exampleSheet = unlines
+  [ "sheet {"
+  , "  A1 = 10;"
+  , "  A2 = 20;"
+  , "  A3 = A1 + A2;"
+  , "  A4 = SUM(A1:A3);"
+  , "}"
+  ]

@@ -1,0 +1,11 @@
+# A sheet with a cyclic reference: A1 depends on A2 and A2 depends on A1.
+# The evaluator must NOT loop forever - those cells become #ERR(cycle),
+# while the independent cells are still computed normally.
+
+sheet {
+  A1 = A2 + 1;
+  A2 = A1 + 1;
+
+  B1 = 5;
+  B2 = B1 * 2;           # 10, unaffected by the cycle above
+}
