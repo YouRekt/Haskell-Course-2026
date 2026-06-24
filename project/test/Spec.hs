@@ -1,23 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Main (main) where
 
---
--- ==========================================
---  Tests for SpreadsheetLang.
---
---  Three layers, as the project asks for:
---    * unit tests   — the parser and each
---      kind of evaluation, including the
---      tiny A1 = A1 cycle;
---    * end-to-end    — a sheet we can work
---      out by hand, and a cyclic sheet that
---      must terminate;
---    * property      — invariants checked by
---      QuickCheck over randomly generated
---      expressions and sheets.
--- ==========================================
---
-
 import Data.Either (isRight)
 import Data.List (nub)
 import qualified Data.Map as Map
@@ -26,12 +9,6 @@ import Test.QuickCheck
 
 import Spreadsheet
 
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
---  Generators (orphan Arbitrary instances)
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
--- A column of one to three upper-case letters; only A-Z, so the address
--- always pretty-prints back to something the parser accepts.
 genCol :: Gen String
 genCol = do
   n <- choose (1, 3)
@@ -43,17 +20,13 @@ genRow = choose (1, 99)
 genAddr :: Gen Addr
 genAddr = (,) <$> genCol <*> genRow
 
--- A string with no quotes/backslashes, so @show@-ing it and parsing it back
--- round-trips (the parser keeps string literals deliberately simple).
 genSafeString :: Gen String
 genSafeString = do
   n <- choose (0, 6)
   vectorOf n (elements (['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ " "))
 
--- A literal value as it could appear on the right of an assignment: a
--- *non-negative* whole number (negatives come from 'Neg'), a boolean or a
--- safe string. Never an 'ErrV' — those are produced by evaluation, never
--- written down.
+-- Literals as they can appear in source: non-negative numbers (negatives
+-- come from Neg), booleans, and quote-free strings, so they round-trip.
 genValueLit :: Gen Value
 genValueLit = oneof
   [ NumV . fromIntegral <$> (choose (0, 1000) :: Gen Int)
@@ -75,8 +48,6 @@ instance Arbitrary Expr where
         ]
         where half = n `div` 2
 
-  -- Shrink towards sub-expressions only, so shrunk values stay valid
-  -- (no accidental negative literals or odd addresses).
   shrink (Neg e)        = e : map Neg (shrink e)
   shrink (BinOp op a b) =
     [a, b]
@@ -96,35 +67,18 @@ instance Arbitrary Sheet where
     cells <- vectorOf k arbitrary
     pure (Sheet cells)
 
-
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
---  Properties
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
--- Pretty-printing an expression and parsing it back recovers it exactly.
 prop_expr_roundtrip :: Expr -> Property
 prop_expr_roundtrip e = parseExpr (prettyExpr e) === Just e
 
--- Evaluation is a pure function of the sheet: recomputing with no change
--- yields identical values (and, since QuickCheck forces the result, this
--- also shows evaluation always terminates — even on cyclic sheets).
 prop_recompute :: Sheet -> Bool
 prop_recompute s = evalSheet s == evalSheet s
 
--- Every defined cell — and only those — ends up with exactly one value.
 prop_every_cell_has_value :: Sheet -> Bool
 prop_every_cell_has_value s@(Sheet cells) =
   Map.keys (evalSheet s) == distinctAddrs
   where
-    -- the distinct addresses, in the same (sorted) order Map.keys uses
     distinctAddrs = nub (Map.keys (Map.fromList [ (addr c, ()) | c <- cells ]))
 
-
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
---  Small helpers for the unit / e2e checks
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
--- Run a source sheet and read back the value of one cell.
 cellVal :: String -> Addr -> Maybe Value
 cellVal src a =
   case run src of
@@ -161,11 +115,6 @@ runProp :: String -> Property -> IO Bool
 runProp name p = do
   putStrLn ("--- " ++ name ++ " ---")
   isSuccess <$> quickCheckResult p
-
-
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
---  Test runner
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 main :: IO ()
 main = do

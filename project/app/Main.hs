@@ -4,13 +4,6 @@ import System.Environment (getArgs)
 
 import Spreadsheet (Addr, Value, prettyAddr, prettyValue, run)
 
---
--- A tiny command-line front end for SpreadsheetLang. Given the path to a
--- .sheet file it parses, evaluates and prints every cell; with no argument
--- it runs a small built-in example so the program does something useful on
--- its own.
---
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -21,7 +14,6 @@ main = do
       report exampleSheet
     _      -> putStrLn "usage: project-exe [SHEET-FILE]"
 
--- Parse, evaluate and print a sheet, or show a parse error.
 report :: String -> IO ()
 report src =
   case run src of
