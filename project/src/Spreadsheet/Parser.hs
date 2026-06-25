@@ -35,8 +35,6 @@ import Spreadsheet.Types
   , Value (..)
   )
 
--- A monadic parser in the Hutton/Meijer style (Lecture 7).
---
 --   sheet  ::= 'sheet' '{' assign* '}'
 --   assign ::= addr '=' expr ';'
 --   expr   ::= cmp
@@ -157,6 +155,7 @@ stringLit = token $ do
   _  <- char '"'
   pure cs
 
+-- Handle left-associative operators
 chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 chainl1 p op = p >>= rest
   where
@@ -251,7 +250,6 @@ assignment = do
 classify :: Expr -> Content
 classify (LitE v) = Lit v
 classify e        = Form e
-
 sheetP :: Parser Sheet
 sheetP = do
   _  <- symbol "sheet"
